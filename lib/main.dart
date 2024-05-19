@@ -1,4 +1,4 @@
-import 'package:editable_list_item/widgets/editable_list_view_widget.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -93,6 +93,132 @@ class _MyHomePageState extends State<MyHomePage> {
         tooltip: 'Increment',
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+}
+
+class ListItem {
+  String name;
+  int quantity;
+  bool inStock;
+
+  ListItem({
+    required this.name,
+    required this.quantity,
+    required this.inStock,
+  });
+}
+
+class ListItemNotifier extends StateNotifier<ListItem> {
+  ListItemNotifier(super.state);
+
+  void setName(String newName) {
+    state = ListItem(name: newName, quantity: state.quantity, inStock: state.inStock);
+  }
+
+  void setQuantity(int newQuantity) {
+    state = ListItem(name: state.name, quantity: newQuantity, inStock: state.inStock);
+  }
+
+  void setInStock(bool newInStock) {
+    state = ListItem(name: state.name, quantity: state.quantity, inStock: newInStock);
+  }
+}
+
+final listItemProvider = StateNotifierProvider.family<ListItemNotifier, ListItem, int>((ref, index) {
+  return ListItemNotifier(ListItem(name: 'Item $index', quantity: index, inStock: index % 2 == 0));
+});
+
+class EditableListItem extends ConsumerWidget {
+  final int index;
+
+  const EditableListItem({super.key, required this.index});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final item = ref.watch(listItemProvider(index));
+    final itemNotifier = ref.read(listItemProvider(index).notifier);
+
+    return ListTile(
+      title: TextField(
+        controller: TextEditingController(text: item.name),
+        onChanged: (newValue) {
+          itemNotifier.setName(newValue);
+        },
+        decoration: const InputDecoration(
+          labelText: 'Name',
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: TextEditingController(text: item.quantity.toString()),
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              if (value.isNotEmpty) {
+                itemNotifier.setQuantity(int.parse(value));
+              }
+            },
+            decoration: const InputDecoration(
+              labelText: 'Quantity',
+            ),
+          ),
+          Row(
+            children: [
+              const Text('In Stock'),
+              Checkbox(
+                value: item.inStock,
+                onChanged: (bool? value) {
+                  if (value != null) {
+                    itemNotifier.setInStock(value);
+                  }
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MyListViewWidget extends ConsumerStatefulWidget {
+  const MyListViewWidget({super.key});
+
+  @override
+  MyListViewWidgetState createState() => MyListViewWidgetState();
+}
+
+class MyListViewWidgetState extends ConsumerState<MyListViewWidget> {
+  void _saveValues() {
+    final items = List.generate(
+      10,
+      (index) => ref.read(listItemProvider(index)),
+    );
+
+    if (kDebugMode) {
+      print(items.map((item) => '${item.name}, ${item.quantity}, ${item.inStock}').toList());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            itemCount: 10,
+            itemBuilder: (context, index) {
+              return EditableListItem(index: index);
+            },
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _saveValues,
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
